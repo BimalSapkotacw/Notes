@@ -818,7 +818,10 @@
           <label>Visible to Batch (leave blank = all students)</label>
           <input type="text" id="nBatch" placeholder="e.g. Class 11 Science  (or leave blank for all)">
         </div>
-        <button class="btn-add" onclick="addNote()">Publish Note ✓</button>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn-add" id="addNoteBtn" onclick="addNote()">Publish Note ✓</button>
+          <button class="btn-edit" id="cancelEditBtn" onclick="cancelEdit()" style="display:none;">✕ Cancel Edit</button>
+        </div>
       </div>
 
       <div class="admin-card">
@@ -1230,10 +1233,39 @@ function renderNotesList() {
         <div class="note-row-sub">${n.subject}${n.batch?' · Batch: '+n.batch:' · All students'}${n.tag?' · '+n.tag:''} · ${new Date(n.date).toLocaleDateString()}</div>
       </div>
       <div class="note-row-actions">
+        <button class="btn-edit" onclick="editNote(${i})">✏️ Edit</button>
         <button class="btn-danger" onclick="removeNote(${i})">Delete</button>
       </div>
     </div>
   `).join('');
+}
+
+let editingNoteIndex = -1;
+
+function editNote(i) {
+  const notes = getNotes();
+  const n = notes[i];
+  editingNoteIndex = i;
+  document.getElementById('nSubject').value = n.subject || '';
+  document.getElementById('nTitle').value = n.title || '';
+  document.getElementById('nContent').value = n.content || '';
+  document.getElementById('nIcon').value = n.icon || '📄';
+  document.getElementById('nTag').value = n.tag || '';
+  document.getElementById('nBatch').value = n.batch || '';
+  // Update button text and show cancel
+  document.getElementById('addNoteBtn').textContent = '💾 Save Changes';
+  document.getElementById('cancelEditBtn').style.display = 'inline-block';
+  // Scroll to form
+  document.getElementById('addNoteBtn').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  toast('✏️ Editing note — make changes and click Save Changes');
+}
+
+function cancelEdit() {
+  editingNoteIndex = -1;
+  ['nSubject','nTitle','nContent','nTag','nBatch'].forEach(f => document.getElementById(f).value = '');
+  document.getElementById('nIcon').value = '📄';
+  document.getElementById('addNoteBtn').textContent = 'Publish Note ✓';
+  document.getElementById('cancelEditBtn').style.display = 'none';
 }
 
 function addNote() {
@@ -1247,13 +1279,25 @@ function addNote() {
   if (!subject || !title || !content) { toast('⚠️ Please fill in subject, title, and content!'); return; }
 
   const notes = getNotes();
-  notes.unshift({ subject, title, content, icon, tag, batch, date: new Date().toISOString() });
-  saveNotes(notes);
-  renderNotesList();
-  renderStats();
-  ['nSubject','nTitle','nContent','nTag','nBatch'].forEach(f => document.getElementById(f).value = '');
-  document.getElementById('nIcon').value = '📄';
-  toast('✅ Note published!');
+
+  if (editingNoteIndex >= 0) {
+    // Update existing note
+    notes[editingNoteIndex] = { ...notes[editingNoteIndex], subject, title, content, icon, tag, batch, editedOn: new Date().toISOString() };
+    saveNotes(notes);
+    renderNotesList();
+    renderStats();
+    cancelEdit();
+    toast('✅ Note updated!');
+  } else {
+    // New note
+    notes.unshift({ subject, title, content, icon, tag, batch, date: new Date().toISOString() });
+    saveNotes(notes);
+    renderNotesList();
+    renderStats();
+    ['nSubject','nTitle','nContent','nTag','nBatch'].forEach(f => document.getElementById(f).value = '');
+    document.getElementById('nIcon').value = '📄';
+    toast('✅ Note published!');
+  }
 }
 
 function removeNote(i) {
